@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <style>
+      /* The Modal (background) */
+      .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgb(0,0,0); /* Fallback color */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+      }
+
+      /* Modal Content/Box */
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto; /* 15% from the top and centered */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Could be more or less, depending on screen size */
+      }
+    </style>
+    <!-- เรียก library jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
+    <title>Document</title>
+
+  </head>
+  <body>
+    <div class="w3-container">
+      <label for="token">Token: </label>
+      <input type="text" id="token" name="token">
+      <button type="button" onClick="checkDetectorStatus();">Submit</button>
+      <p id="status-text"></p>
+      <br>
+      <label for="download_from">from: </label>
+      <input type="date" id="download_from" name="download_from">
+      <label for="download_to">to: </label>
+      <input type="date" id="download_to" name="download_to" >
+      <br><br>
+      <button type="button" onClick="show_overlay(downloadManager,'csv');">getData</button>
+      <button type="button" onClick="show_overlay(audioDownloadManage,'audio');">download</button>
+    </div>
+
+        <!-- The Modal -->
+    <div id="myModal" class="modal">
+      <!-- Modal content -->
+      <div id="modal-content" class="modal-content">
+        <p id="modal-content-text">Some text in the Modal..</p><br>
+        <button id="modal-content-button" type="button">confirm</button>
+        <button id="modal-content-cancle" type="button" onclick="close_overlay();">close</button>
+      </div>
+    </div>
+
+    <script>
+      var gAudioID = [];
+      var gUrl = [];
+      var gdownloadList = [];
+      var gjsonDataList = [];
+      var gcurson=0;
+      var modal = document.getElementById("myModal"); //overlay popup
+      var token = '';
+      // var token = "hqTGhgvHnHpW16rKt2eRGjh8";
+      document.getElementById("download_from").valueAsDate = new Date();
+      document.getElementById("download_to").valueAsDate = new Date();
+      //-------------------function section----------------------------
+      function checkDetectorStatus() {
+        var check_token = document.getElementById("token").value;
+        var textBox = document.getElementById('status-text');
+
+        var get_url =
+          "https://app.birdweather.com/api/v1/stations/" + check_token + "/stats";
+        var resp; //เป็นตัวแปรเพื่อรับหลังจากทำงานเสร็จ
+        $.ajax({
+          url: get_url,
+          type: "GET",
+          async: false,
+          success: function (data, textStatus, xhr) {
+            resp = xhr.status;
+          },
+          error: function (error, textStatus) {
+            alert(error.status);
+            // alert(textStatus);
+          },
+        });
+        if(resp ==200){
+          token = check_token;
+          textBox.innerText = "Ok";
+          textBox.style.color = 'green';
+        }else{
+          document.getElementById("token").value = "";
+          token = '';
+          textBox.innerText = "Token not valid";
+          textBox.style.color = 'red';
+        }
+      }
+      function close_overlay(){
+        modal.style.display = 'none';
+      }
+
+      //popup overlay 
+      function show_overlay(func,typeDownload){
+        modal.style.display = "block";
+        var textInOverlay = document.getElementById("modal-content-text");
+        var btn = document.getElementById("modal-content-button");
+        if (typeDownload =='csv'){
+          var start_ = document.getElementById('download_from').value;
+          var end_ = document.getElementById('download_to').value;
+        }
+        else{
+          var start_ = String(gjsonDataList[0]['id']);
+          var end_ = String(gjsonDataList[gjsonDataList.length-1]['id']);
+        }
+        textInOverlay.innerText = "Download data from "+start_ + " to " +end_;
+        btn.onclick = function(){func();};     
+      }
+
+      function downloadManager(){
+        var cursor = gcurson;
+        gjsonDataList = []; //reset gjsonDataList
+        var from_ = document.getElementById('download_from').value;
+        var to_ = document.getElementById('download_to').value;
+
+        //check date "from" must be earlier than "to"
+        if(from_>to_){
+          alert("from must be earlier than to")
+          modal.style.display = "none";
+          return ;
+        }
+        console.log(token);
+        if(token ==''){
+          alert("token is not valid")
+          modal.style.display = "none";
+          return ;
+        }
+
+        while(cursor != -1){
+          console.log('cursor: '+cursor);
+          if(cursor == 0){
+            downloadURL =  "https://app.birdweather.com/api/v1/stations/" +token +"/detections?limit=100"+"&from="+from_+"&to="+to_;
+          }else{
+            downloadURL =  "https://app.birdweather.com/api/v1/stations/" +token +"/detections?limit=100&cursor="+cursor+"&from="+from_+"&to="+to_;
+          }
+          cursor = getDetectorDataV2(downloadURL);
+        }
+        
+        if (gjsonDataList.length != 0){
+          jsonToCsv(gjsonDataList);
+        }
+        modal.style.display = "none";    
+      }
+
+      function getDetectorDataV2(url) {
+        var get_url =url;
+        var resp; //เป็นตัวแปรเพื่อรับหลังจากทำงานเสร็จ
+        $.ajax({
+          url: get_url,
+          type: "GET",
+          async: false,
+          success: function (data, textStatus, xhr) {
+            resp = data
+          },
+          error: function (error, textStatus) {
+            alert(error.status);
+            alert(textStatus);
+          },
+        });
+        detector = resp["detections"];
+  
+        if(detector.length ==0){
+          cursor = -1
+          return cursor
+        }
+        
+        detector.forEach((e) => {
+          if (gAudioID.length == 0) {
+            gAudioID.push(e["id"]);
+            gUrl.push(e["soundscape"]["url"]);
+            gjsonDataList.push(dataCollector(e));
+          } else {
+            if (gUrl[gUrl.length - 1] != e["soundscape"]["url"]) {
+              gAudioID.push(e["id"]);
+              gUrl.push(e["soundscape"]["url"]);
+              gjsonDataList.push(dataCollector(e));
+            }
+          }
+        });
+        console.log(gjsonDataList.length);
+        return detector[detector.length-1]['id']
+      }
+
+      async function audioDownloadManage(){
+        console.log("audioDownloadMana: Activate")
+        gjsonDataList.forEach((e)=>{
+          dataDownload = {
+                    'audioID' : e["id"],
+                    'url' : e["url"]
+                  }
+          gdownloadList.push(dataDownload);
+        });
+        console.log("gdownloadList: "+ gdownloadList);
+        await downloadAllFiles(gdownloadList);
+      }
+
+      function jsonToCsv(items) {
+        const header = Object.keys(items[0]);
+        const headerString = header.join(',');
+        // handle null or undefined values here
+        const replacer = (key, value) => value ?? '';
+        const rowItems = items.map((row) =>
+          header
+            .map((fieldName) => JSON.stringify(row[fieldName], replacer))
+            .join(',')
+        );
+        // join header and body, and break into separate lines
+        const csv = [headerString, ...rowItems].join('\r\n');
+        downloadCSVFile(csv);
+        // return csv;
+      }
+
+      function downloadCSVFile(csv_data) {
+        // Create CSV file object and feed our
+        // csv_data into it
+        CSVFile = new Blob([csv_data], { type: "text/csv" });
+
+        // Create to temporary link to initiate
+        // download process
+        var temp_link = document.createElement("a");
+
+        // Download csv file
+        temp_link.download = "birdData.csv";
+        var url = window.URL.createObjectURL(CSVFile);
+        temp_link.href = url;
+
+        // This link should not be displayed
+        temp_link.style.display = "none";
+        document.body.appendChild(temp_link);
+
+        // Automatically click the link to trigger download
+        temp_link.click();
+        document.body.removeChild(temp_link);
+      }
+
+      function dataCollector(respData){
+        const date= new Date(respData['timestamp']);
+        return{
+          'id': respData['id'],
+          'date': date.getDate()+'/'+date.getMonth()+'/'+date.getFullYear(),
+          'times': date.getHours()+':'+date.getMinutes()+':'+date.getSeconds(),
+          'confidence': respData['confidence'],
+          'probability': respData['probability'],
+          'score':respData['score'],
+          'certainty': respData['certainty'],
+          'algorithm': respData['algorithm'],
+          'certainty': respData['certainty'],
+          'scientificName': respData['species']['scientificName'],
+          'url': respData['soundscape']['url']
+        }
+      }
+
+      async function downloadWithFetch(audioID, url) {
+        console.log('download file id:'+audioID);
+        await fetch(url)
+          .then((response) => response.blob())
+          .then((blob) => {
+            // Create a download link
+            var downloadLink = document.createElement("a");
+            downloadLink.style.display = "none";
+
+            // Set the download link's href attribute to the Blob object
+            downloadLink.href = URL.createObjectURL(blob);
+
+            // Set the download link's download attribute to specify the filename
+            downloadLink.download = String(audioID);
+
+            // Append the download link to the document
+            document.body.appendChild(downloadLink);
+
+            // Trigger a click event on the download link
+            downloadLink.click();
+
+            // Clean up by removing the download link from the DOM
+            document.body.removeChild(downloadLink);
+          })
+          .catch((error) => {
+            console.error("Error downloading file:", error);
+          });
+      }
+
+      async function downloadAllFiles(downloadList){
+        // console.log('download data: '+downloadList[0]);
+        // console.log('start download file');
+        document.getElementById("modal-content-button").style.display = 'none';
+        document.getElementById("modal-content-cancle").style.display = 'none';
+
+        for(let i=0; i<downloadList.length;i++){
+          console.log('i: '+i);
+          console.log('download: '+downloadList[i]['audioID']);
+          document.getElementById("modal-content-text").innerText ="download : "+String(i+1)+"/"+String(downloadList.length);
+          await downloadWithFetch(downloadList[i]['audioID'],downloadList[i]['url']);
+        }      
+        document.getElementById("modal-content-button").style.display = 'inline';
+        document.getElementById("modal-content-cancle").style.display = 'inline';
+        modal.style.display = "none";
+      }
+
+     
+      //-------------------End function section----------------------------
+    </script>
+  </body>
+</html>
