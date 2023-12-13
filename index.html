@@ -193,7 +193,7 @@
             }
           }
         });
-        console.log(gjsonDataList.length);
+        console.log(gjsonDataList[0]['scientificName']);
         return detector[detector.length-1]['id']
       }
 
@@ -202,6 +202,7 @@
         gjsonDataList.forEach((e)=>{
           dataDownload = {
                     'audioID' : e["id"],
+                    'scientificName' : e['scientificName'], 
                     'url' : e["url"]
                   }
           gdownloadList.push(dataDownload);
@@ -261,13 +262,13 @@
           'certainty': respData['certainty'],
           'algorithm': respData['algorithm'],
           'certainty': respData['certainty'],
-          'scientificName': respData['species']['scientificName'],
+          'scientificName': respData['species']['scientificName'].replaceAll(" ","_"),
           'url': respData['soundscape']['url']
         }
       }
 
-      async function downloadWithFetch(audioID, url) {
-        console.log('download file id:'+audioID);
+      async function downloadWithFetch(fileName, url) {
+        console.log('download file id:'+fileName);
         await fetch(url)
           .then((response) => response.blob())
           .then((blob) => {
@@ -279,7 +280,7 @@
             downloadLink.href = URL.createObjectURL(blob);
 
             // Set the download link's download attribute to specify the filename
-            downloadLink.download = String(audioID);
+            downloadLink.download = fileName;
 
             // Append the download link to the document
             document.body.appendChild(downloadLink);
@@ -304,8 +305,9 @@
         for(let i=0; i<downloadList.length;i++){
           console.log('i: '+i);
           console.log('download: '+downloadList[i]['audioID']);
+          var fileName = downloadList[i]['scientificName']+"_"+String(downloadList[i]['audioID']);
           document.getElementById("modal-content-text").innerText ="download : "+String(i+1)+"/"+String(downloadList.length);
-          await downloadWithFetch(downloadList[i]['audioID'],downloadList[i]['url']);
+          await downloadWithFetch(fileName,downloadList[i]['url']);
         }      
         document.getElementById("modal-content-button").style.display = 'inline';
         document.getElementById("modal-content-cancle").style.display = 'inline';
