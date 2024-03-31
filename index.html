@@ -252,9 +252,16 @@
 
       function dataCollector(respData){
         const date= new Date(respData['timestamp']);
+        // console.log("------------------");
+        // console.log(date);
+        // console.log(date.getDate());
+        // console.log(date.getMonth()+1);
+        // console.log(date.getFullYear());
+        // console.log("------------------");
+        // date.getMonth จะให้ค่า 0-11 โดย Jan =0 Dec=11
         return{
           'id': respData['id'],
-          'date': date.getDate()+'/'+date.getMonth()+'/'+date.getFullYear(),
+          'date': date.getDate()+'/'+(date.getMonth()+1)+'/'+date.getFullYear(),
           'times': date.getHours()+':'+date.getMinutes()+':'+date.getSeconds(),
           'confidence': respData['confidence'],
           'probability': respData['probability'],
